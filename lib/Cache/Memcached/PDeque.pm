@@ -255,9 +255,9 @@ sub _push_with_priority {
   try {
     $self->_lock($priority);
 
-    my $index = $self->memcached->incr($priority . ':tail');
+    my $href = $self->memcached->incr_multi([$priority . ':tail'],[$priority . ':size'],['size']);
+    my $index = $href->{$priority . ':tail'};
     $self->memcached->add($priority . ':' . $index, $data, 0);
-    $self->memcached->incr_multi([$priority . ':size'],['size']);
 
     $self->_unlock($priority);
     return 1;
@@ -343,22 +343,25 @@ sub _pop_with_priority {
   try {
     $self->_lock($priority);
 
-    my $first = $self->memcached->get($priority . ':head');
-    my $index = $self->memcached->get($priority . ':tail');
+    my $href = $self->memcached->get_multi(($priority . ':head',$priority . ':tail'));
+    my $first = $href->{$priority . ':head'};
+    my $index = $href->{$priority . ':tail'};
 
-    my $result = undef;
+    my $result;
 
     if ( $index > $first ) {
       $result = $self->memcached->get($priority . ':' . $index);
       $self->memcached->delete($priority . ':' . $index);
-      $self->memcached->decr('size');
 
-      if ( 0 == $self->memcached->decr($priority . ':size')) {
+      if ( $first+1 == $index ) {
         # Empty, reset head and tail
-        $self->memcached->set_multi([$priority . ':head', $initial_head_tail],[$priority . ':tail', $initial_head_tail]);
+        $self->memcached->set_multi([$priority . ':head', $initial_head_tail],
+                                    [$priority . ':tail', $initial_head_tail],
+                                    [$priority . ':size', 0]);
+        $self->memcached->decr('size');          
       } else {
         # Not empty, simply update new value of tail
-        $self->memcached->set($priority . ':tail', $index-1);
+        $self->memcached->decr_multi(['size'],[$priority . ':size'],[$priority . ':tail']);
       }
     }
 
@@ -368,7 +371,7 @@ sub _pop_with_priority {
 
   } catch {
     $self->_unlock($priority);
-    return undef;
+    return;
   }
 }
 
@@ -406,22 +409,27 @@ sub _shift_with_priority {
   try {
     $self->_lock($priority);
 
-    my $index = $self->memcached->get($priority . ':head');
-    my $last = $self->memcached->get($priority . ':tail');
+    my $href = $self->memcached->get_multi(($priority . ':head',$priority . ':tail'));
+    my $index = $href->{$priority . ':head'};
+    my $last = $href->{$priority . ':tail'};
 
     my $result = undef;
 
     if ( $index++ < $last ) {
       $result = $self->memcached->get($priority . ':' . $index);
       $self->memcached->delete($priority . ':' . $index);
-      $self->memcached->decr('size');
 
-      if ( 0 == $self->memcached->decr($priority . ':size')) {
-        # Empty, reset head and tail
-        $self->memcached->set_multi([$priority . ':head', $initial_head_tail],[$priority . ':tail', $initial_head_tail]);
+      if ( $index == $last ) {
+        # Empty, reset size, head and tail
+        $self->memcached->set_multi([$priority . ':size', 0],
+                                    [$priority . ':head', $initial_head_tail],
+                                    [$priority . ':tail', $initial_head_tail]);
+        # And decrement global size
+        $self->memcached->decr('size');
       } else {
         # Not empty, simply update new value of tail
         $self->memcached->set($priority . ':head', $index);
+        $self->memcached->decr_multi(['size'],[$priority . ':size']);
       }
     }
 
