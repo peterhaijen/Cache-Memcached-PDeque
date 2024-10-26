@@ -464,21 +464,23 @@ sub shift {
 
 =head2 foreach
 
-  sub do_something {
-    my $el = shift;
-    print "square of $el is " . $el ** 2 . "\n";
+  sub do_square {
+    my ( $el, $param ) = @_;
+    push @{$param}, $el**2;
   }
 
-  $dq->foreach(\&do_something);
+  my @squared;
+  $dq->foreach(\&do_square, \@squared);
 
-  Executes a subroutine on every element.
+  Executes a subroutine on every element. In the example, for each element in $dq, calculate the square
+  value and push that onto @squared.
 
-  (!) Do not attempt to modify $dq from within the do_something() subroutine. This will cause a deadlock.
+  (!) Do not attempt to modify $dq from within the do_square() subroutine. This will cause a deadlock.
 
 =cut
 
 sub foreach {
-  my ( $self, $func ) = @_;
+  my ( $self, $func, $param ) = @_;
 
   $self->_lock(0, timeout => 0);
   foreach my $prio ( $self->max_prio .. 1 ) {
@@ -488,35 +490,12 @@ sub foreach {
     my $tail = $href->{$prio . ':tail'};
     while ( ++$head <= $tail ) {
       my $el = $self->memcached->get($prio . ':' . $head);
-      $func->($el);
+      $func->($el, $param );
     }
     $self->_unlock($prio);
   }
   $self->_unlock(0);
 
-}
-
-sub _dump {
-  my ( $self ) = @_;
-  my @result;
-
-  for ( my $prio=$self->max_prio; $prio>=1; $prio-- ) {
-
-    $self->_lock($prio, timeout => 60);
-    #$DB::single = 1;
-
-    my $href  = $self->memcached->get_multi(($prio . ':head',$prio . ':tail'));
-    my $first = $self->memcached->get($prio . ':head');
-    my $last  = $self->memcached->get($prio . ':tail');
-
-    foreach my $i ( $first+1 .. $last ) {
-      CORE::push @result, $self->memcached->get($prio . ':' . $i);
-    }
-
-    $self->_unlock($prio);
-  }
-
-  return @result;
 }
 
 sub _check {

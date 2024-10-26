@@ -11,16 +11,18 @@ my @list = ( 1..10 );
 plan tests => scalar @list;
 
 sub do_something {
-    my $el = shift;
-    print "square of $el is " . $el ** 2 . "\n";
-    is $el, shift @list;
+    my ( $el, $param ) = @_;
+    push @{$param}, $el**2;
 }
 
-foreach my $i ( @list ) {
-    print "Push:$i\n";
-    $dq->push($i);
-}
+# Push all elements of @list into $dq
+map { $dq->push($_) } @list;
 
-$dq->foreach(\&do_something);
+# Fill @squared with the square of each element in $dq
+my @squared;
+$dq->foreach(\&do_something, \@squared);
+
+# Test the result
+map { is shift @squared, $_**2, "Test square($_) == " . $_**2 } @list;
 
 $dq->_flush;
