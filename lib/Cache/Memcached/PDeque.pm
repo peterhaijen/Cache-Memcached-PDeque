@@ -75,6 +75,11 @@ The storage backend for this implementation is Memcached, an in-memory key-value
 
 =head1 METHODS
 
+The following public methods are available.
+
+Please note that any methods starting with an underscore '_' are considered private, are undocumented, and are
+subject to change without notice. Do not use private methods.
+
 =cut
 
 subtype 'Name',
@@ -189,16 +194,7 @@ sub BUILD {
   return $self;
 }
 
-=head2 METHODS
-
-The following public methods are available.
-
-Please note that any methods starting with an underscore '_' are considered private, are undocumented, and are
-subject to change without notice. Do not use private methods.
-
-=cut
-
-=head3 clear
+=head2 clear
 
   $dq->clear;
 
@@ -231,7 +227,7 @@ sub clear {
   $self->_unlock(0, timeout => 0);
 }
 
-=head3 size
+=head2 size
 
   my $size = $dq->size;
 
@@ -272,7 +268,7 @@ sub _push_with_priority {
   }
 }
 
-=head3 push
+=head2 push
 
   $dq->push($element);
 
@@ -316,11 +312,15 @@ sub _unshift_with_priority {
   }
 }
 
-=head3 unshift
+=head2 unshift
 
   $dq->unshift($element);
 
   Insert $element before all elements.
+
+  $dq->unshift($priority, $element);
+
+  Inserts $element after all elements with a higher priority, and before all elements with a lower or equal priority.
 
 =cut
 
@@ -372,7 +372,7 @@ sub _pop_with_priority {
   }
 }
 
-=head3 pop
+=head2 pop
 
   my $element = $dq->pop;
 
@@ -435,7 +435,7 @@ sub _shift_with_priority {
   }
 }
 
-=head3 shift
+=head2 shift
 
   my $element = $dq->shift;
 
@@ -462,7 +462,7 @@ sub shift {
   }
 }
 
-=head3 foreach
+=head2 foreach
 
   sub do_something {
     my $el = shift;

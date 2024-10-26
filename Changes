@@ -1,5 +1,8 @@
 Revision history for Cache-Memcached-PDeque
 
+0.03    xxxxxxxxxx
+        Improved documentation.
+        
 0.02    2024-10-26
         Made the *_with_priority() methods private.
         Added clear() method.
