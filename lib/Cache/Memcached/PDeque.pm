@@ -212,20 +212,11 @@ sub BUILD {
   return $self;
 }
 
-=head2 clear
+sub _clear_with_priority {
+  my ( $self, $prio ) = @_;
 
-  $dq->clear;
-
-  Removes all elements.
-
-=cut
-
-sub clear {
-  my ( $self ) = @_;
-
-  $self->_lock(0, timeout => 0);
-  foreach my $prio ( 1 .. $self->max_prio ) {
-    $self->_lock($prio, timeout => 0);
+  try {
+    $self->_lock($prio);
 
     # Delete all elements with $prio
     my $href  = $self->memcached->get_multi(($prio . ':head',$prio . ':tail'));
@@ -237,12 +228,40 @@ sub clear {
                                 [$prio . ':head', $initial_head_tail],
                                 [$prio . ':tail', $initial_head_tail]);
 
-    $self->_unlock($prio, timeout => 0);
+    $self->memcached->decr('size', $href->{$prio . ':tail'} - $href->{$prio . ':head'});
+
+    $self->_unlock($prio);
+
+    return $href->{$prio . ':tail'} - $href->{$prio . ':head'};
+
+  } catch {
+    $self->_unlock($prio);
   }
+}
 
-  $self->memcached->set('size', 0);
+=head2 clear
 
-  $self->_unlock(0, timeout => 0);
+  $dq->clear;
+
+  Removes all elements.
+
+=cut
+
+sub clear {
+  if ( 1 == scalar @_ ) {
+    my ( $self ) = @_;
+    my $cleared = 0;
+    $self->_lock(0, timeout => 0);
+    foreach my $prio ( 1 .. $self->max_prio ) {
+      $cleared += $self->_clear_with_priority($prio);
+    }
+    $self->memcached->set('size', 0);
+    $self->_unlock(0);
+  } else {
+    my ( $self, $prio ) = @_;
+    assert($prio >= 1 && $prio <= $self->max_prio) if DEBUG;
+    return $self->_clear_with_priority($prio);
+  }
 }
 
 =head2 max_size

@@ -6,6 +6,7 @@ README
 CONTRIBUTING.md
 t/00-load.t
 t/basic.t
+t/clear.t
 t/foreach.t
 t/fork.t
 t/frontback.t

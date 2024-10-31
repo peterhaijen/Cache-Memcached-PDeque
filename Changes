@@ -1,5 +1,9 @@
 Revision history for Cache-Memcached-PDeque
 
+0.04    xxxxxxxxxx
+        Changed clear() - added priority
+        Added test script for clear() method.
+
 0.03    2024-10-30
         Added max_size() method to limit # elements.
         Added front() and back() methods.
